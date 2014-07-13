@@ -83,7 +83,7 @@ Sexpr parse(string s=null)
     string accumulated_chars = "";
     int paren_count = 0;
 
-    Sexpr*[] sexprs;
+    Sexpr*[] sexprs = [];
 
     void append_tok_if_chars()
     {
@@ -99,7 +99,6 @@ Sexpr parse(string s=null)
         try
         {
             Number number = parse_number(accumulated_chars);
-
             writeln("parsed number ", number);
             *sexprs[$-1] ~= number;
             accumulated_chars = "";
@@ -113,13 +112,12 @@ Sexpr parse(string s=null)
         }
         else if (accumulated_chars == pair_infix)
         {
-            //toks ~= make_token(accumulated_chars, TokenType.Syntax,
-              //                 Lexeme.PairInfix);
             writeln("DEBUG: handling Pair infix operator: TODO!");
         }
         else
         {
             //toks ~= make_token(accumulated_chars, *new Symbol(accumulated_chars));
+
         }
 
         accumulated_chars = "";
@@ -175,7 +173,6 @@ Sexpr parse(string s=null)
                                 i, chop(s)));
                 }
             }
-            writeln("...parsed ", sexprs, "...");
         }
         return parens;
     }
@@ -196,5 +193,5 @@ Sexpr parse(string s=null)
 
     assert (sexprs.length == 1,
             format("Sexpr[] length is not 1, it is %s", sexprs.length));
-    return sexprs[0];
+    return *sexprs[0];
 }

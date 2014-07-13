@@ -142,29 +142,53 @@ enum SexprType
     Pair,
 }
 
+bool is_sexpr_value_kind(T)()
+{
+    return (is(T == Pair) || is(T == Symbol) || is (T == Number));
+}
+
+struct SexprValue
+{
+    Algebraic!(Pair, Symbol, Number) value;
+    TypeInfo type;
+
+    void opAssign(T)(T t) if (is_sexpr_value_kind!T)
+    {
+        value = t;
+        type = typeid(T);
+    }
+
+    T to(T)() if (is_sexpr_value_kind!T)
+    {
+        if (type == typeid(T))
+        {
+            return value.peek!T;
+        }
+        return null;
+    }
+
+    alias value this;
+}
+
 struct Sexpr
 {
-    Variant value;
-    //alias value this;
+    SexprValue value;
+    alias value this;
     bool has_value = false;
-    const TypeInfo type;
 
-    this(T)(T t) if (is(T == Pair) || is(T == Symbol) || is(T == Number))
+    this(T)(T t) if (is_sexpr_value_kind!T)
     {
-        writeln("Sexpr, ", T.stringof);
+        writeln("new Sexpr, of type: ", T.stringof);
         has_value = true;
-        type = typeid(T);
-
-        writeln("Sexpr: ", t);
         value = t;
     }
 
-    void opAssign(T)(T t)
+    void opAssign(T)(T t) if (is_sexpr_value_kind!T)
     {
         if (has_value)
         {
-            writeln("Sexpr.opAssign: comparing existing type ", type,
-                    " with ", typeid(T));
+            debug writeln("Sexpr.opAssign: comparing existing type ", type,
+                          " with ", typeid(T));
             assert (typeid(T) == type);
         }
         value = t;
@@ -172,6 +196,8 @@ struct Sexpr
 
     void opCatAssign(T)(T t)
     {
+        writeln("Sexpr.opCatAssign ", T.stringof, ": ", t);
+
         bool try_append(ref Pair p, T t)
         {
             writeln("try_append: ", t);
@@ -185,27 +211,29 @@ struct Sexpr
         }
 
         debug assert (has_value);
-        debug assert (type == typeid(Pair));
+        debug assert (value.type == typeid(Pair), format(
+                     "Cannot append %s to a non-Pair expression", T.stringof));
 
-        while (!try_append(pair, t))
-        {
-            if (pair.has_cdr)
-            {
-                if (is(pair.cdr.type == Pair))
-                {
-                    pair = pair.cdr.pair;
-                }
-                else
-                {
-                    throw new TypeError(format(
-                                    "Cannot append to improper list ", pair));
-                }
-            }
-            else
-            {
-                pair.cdr = new Sexpr(*new Pair);
-                pair = pair.cdr.pair;
-            }
-        }
+        auto pair = *value.peek!Pair;
+        //while (!try_append(pair, t))
+        //{
+        //    if (pair.has_cdr)
+        //    {
+        //        if (is(pair.cdr.type == Pair))
+        //        {
+        //            pair = *pair.cdr.value.peek!Pair;
+        //        }
+        //        else
+        //        {
+        //            throw new TypeError(format(
+        //                            "Cannot append to improper list ", pair));
+        //        }
+        //    }
+        //    else
+        //    {
+        //        pair.cdr = new Sexpr(*new Pair);
+        //        pair = pair.cdr.peek!Pair;
+        //    }
+        //}
     }
 }
