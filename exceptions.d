@@ -20,7 +20,6 @@ string generate_exception_mixin(in string name)
         ~ "}\n";
 }
 
-
 mixin(generate_exception_mixin("KeyError"));
 mixin(generate_exception_mixin("ReadError"));
 mixin(generate_exception_mixin("EvalError"));

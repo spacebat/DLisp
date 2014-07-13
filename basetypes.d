@@ -21,25 +21,26 @@ struct Symbol
     }
 }
 
+
 struct Pair
 {
-    Sexpr car, cdr;
+    Sexpr * car, cdr;
 
     bool has_car = false,
          has_cdr = false;
 
     invariant()
     {
-        if (car.hasValue)
+        if (car.has_value)
         {
             assert (is_expression_type(car),
-                    format("CAR: Not a valid Sexpr type: %s", car));
+                    "Value in CAR is not a valid type");
         }
 
-        if (cdr.hasValue)
+        if (cdr.has_value)
         {
             assert (is_expression_type(cdr),
-                    format("CAR: Not a valid Sexpr type: %s", cdr));
+                    "Value in CDR is not a valid type");
         }
     }
 
@@ -59,11 +60,11 @@ struct Pair
     {
         string car_string, cdr_string;
 
-        if (has_car && car.hasValue)
+        if (has_car && car.has_value)
         {
             car_string = to!string(car);
 
-            if (has_cdr && car.hasValue)
+            if (has_cdr && car.has_value)
             {
                 cdr_string = to!string(cdr);
             }
@@ -105,7 +106,7 @@ bool is_expression_type(T)(T t)
         return true;
     }
 
-    auto var = cast(Variant)t;
+    auto var = cast(Variant)t.value;
 
     if (var != null)
     {
@@ -134,158 +135,77 @@ bool is_atomic_type(TypeInfo info)
     return is_type_in_typetuple!AtomicTypes(info);
 }
 
-
-
-
-mixin template TaggedUnion(Types ...)
+enum SexprType
 {
-    private auto getUnionContent()
-    {
-        string s;
-        foreach(T; Types)
-        {
-            s ~=  fullyQualifiedName!T ~ " member_" ~ T.mangleof ~ ";";
-        }
+    Number,
+    Symbol,
+    Pair,
+}
 
-        return s;
+struct Sexpr
+{
+    Variant value;
+    //alias value this;
+    bool has_value = false;
+    const TypeInfo type;
+
+    this(T)(T t) if (is(T == Pair) || is(T == Symbol) || is(T == Number))
+    {
+        writeln("Sexpr, ", T.stringof);
+        has_value = true;
+        type = typeid(T);
+
+        writeln("Sexpr: ", t);
+        value = t;
     }
 
-    private auto getTag()
+    void opAssign(T)(T t)
     {
-        string s;
-        foreach(T; Types)
+        if (has_value)
         {
-            s ~= T.mangleof ~ ",";
+            writeln("Sexpr.opAssign: comparing existing type ", type,
+                    " with ", typeid(T));
+            assert (typeid(T) == type);
         }
-
-        return "enum Tag {" ~ s ~ "}";
+        value = t;
     }
 
-    private auto getSwitchContent()
+    void opCatAssign(T)(T t)
     {
-        string s;
-        foreach(T; Types)
+        bool try_append(ref Pair p, T t)
         {
-            s ~= "case Tag." ~ T.mangleof;
-            s ~= ": return fun(member_" ~ T.mangleof ~ ");";
-        }
+            writeln("try_append: ", t);
 
-        return s;
-    }
-
-    struct TaggedUnion
-    {
-    private:
-        union
-        {
-            mixin(getUnionContent());
-        }
-
-        mixin(getTag());
-
-        Tag tag;
-
-    public:
-        this(T)(T t) if(is(typeof(mixin("Tag." ~ T.mangleof))))
-        {
-            mixin("tag = Tag." ~ T.mangleof ~ ";");
-            mixin("member_" ~ T.mangleof ~ " = t;");
-        }
-
-        auto ref apply(alias fun)()
-        {
-            final switch(tag)
+            if (!p.has_car)
             {
-                mixin(getSwitchContent());
+                p.car = new Sexpr(t);
+                return true;
+            }
+            return false;
+        }
+
+        debug assert (has_value);
+        debug assert (type == typeid(Pair));
+
+        while (!try_append(pair, t))
+        {
+            if (pair.has_cdr)
+            {
+                if (is(pair.cdr.type == Pair))
+                {
+                    pair = pair.cdr.pair;
+                }
+                else
+                {
+                    throw new TypeError(format(
+                                    "Cannot append to improper list ", pair));
+                }
+            }
+            else
+            {
+                pair.cdr = new Sexpr(*new Pair);
+                pair = pair.cdr.pair;
             }
         }
     }
-}
-
-
-
-class Sexpr
-{
-    mixin TaggedUnion!(Pair, Number, Symbol);
-
-    this(T)(T t) if (is(T == Pair) || is(T == Number) || is(T == Symbol))
-    {
-
-
-    }
-    //Variant value;
-
-    //this(T)(T t)
-    //{
-    //    writeln("Sexpr: ", t);
-    //    value = t;
-    //}
-
-    //invariant()
-    //{
-    //    if (value.hasValue)
-    //        assert (is_expression_type(value),
-    //                format("Not a valid Sexpr type: %s", value));
-    //}
-
-    //string toString()
-    //{
-    //    auto str = "Sexpr: ";
-    //    if (value.hasValue)
-    //        return str ~ to!string(value);
-    //    return str ~ "undefined";
-    //}
-
-    //void opAssign(T)(T t)
-    //{
-    //    value = t;
-    //}
-
-    //void opCatAssign(T)(T t)
-    //{
-    //    bool try_append(Pair p, T t)
-    //    {
-    //        writeln("try_append: ", t);
-    //        if (!p.has_car)
-    //        {
-    //            p.car = t;
-    //            return true;
-    //        }
-    //        return false;
-    //    }
-
-    //    writeln("Trying to append ", t, " of type ", T.stringof,
-    //            " to Sexpr of type ", value.type);
-
-    //    debug assert (value.hasValue);
-    //    debug assert (value.type == typeid(Pair));
-
-    //    Pair *p = value.peek!Pair;
-    //    debug assert (p != null);
-
-    //    while (!try_append(*p, t))
-    //    {
-    //        if (p.has_cdr)
-    //        {
-    //            Pair *cdr_pair = p.cdr.peek!Pair;
-
-    //            if (cdr_pair)
-    //            {
-    //                p = cdr_pair;
-    //            }
-    //            else
-    //            {
-    //                throw new TypeError(format(
-    //                                    "Cannot append to improper list ", p));
-    //            }
-    //        }
-    //        else
-    //        {
-    //            p.cdr = new Sexpr(new Pair);
-    //            p = p.cdr;
-    //        }
-    //    }
-    //}
-
-    //alias value this;
 }

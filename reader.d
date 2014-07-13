@@ -78,18 +78,12 @@ void scan_for_illegal_lexemes(in string s)
     }
 }
 
-Sexpr make_sexpr(T)(T t) if (staticIndexOf!(T, ExpressionTypes) >= 0)
-{
-    writeln("make_sexpr: ", T.stringof);
-    return *new Sexpr(t);
-}
-
 Sexpr parse(string s=null)
 {
     string accumulated_chars = "";
     int paren_count = 0;
 
-    Sexpr[] sexprs;
+    Sexpr*[] sexprs;
 
     void append_tok_if_chars()
     {
@@ -97,10 +91,9 @@ Sexpr parse(string s=null)
         {
             return;
         }
-
-        if (sexprs.length == 0)
+        else if (sexprs.length == 0)
         {
-            sexprs ~= make_sexpr(*new Pair);
+            sexprs ~= new Sexpr(*new Pair);
         }
 
         try
@@ -108,7 +101,7 @@ Sexpr parse(string s=null)
             Number number = parse_number(accumulated_chars);
 
             writeln("parsed number ", number);
-            sexprs[$-1] ~= number;
+            *sexprs[$-1] ~= number;
             accumulated_chars = "";
             return;
         } catch (ConvException ignored) {}
@@ -145,6 +138,7 @@ Sexpr parse(string s=null)
 
         foreach(i, ref c; s)
         {
+            writeln(i, ": ", c);
             string str_c = to!string(c);
 
             if (WHITESPACE.indexOf(c) >= 0)
@@ -160,8 +154,9 @@ Sexpr parse(string s=null)
                 if (str_c == open_paren)
                 {
                     parens += 1;
-                    append_tok_if_chars();
-                    sexprs ~= make_sexpr(*new Pair);
+
+                    sexprs ~= new Sexpr(*new Pair);
+                    writeln("Here");
                 }
                 else if (str_c == close_paren)
                 {
