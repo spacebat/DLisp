@@ -21,39 +21,34 @@ struct Symbol
     }
 }
 
-
 struct Pair
 {
-    Sexpr * car, cdr;
+    private Sexpr * car = null,
+                    cdr = null;
 
-    bool has_car = false,
-         has_cdr = false;
+    bool has_car() @property
+    {
+        return car !is null;
+    }
+
+    bool has_cdr() @property
+    {
+        return cdr !is null;
+    }
 
     invariant()
     {
-        if (car.has_value)
+        if (car !is null)
         {
             assert (is_expression_type(car),
                     "Value in CAR is not a valid type");
         }
 
-        if (cdr.has_value)
+        if (cdr !is null)
         {
             assert (is_expression_type(cdr),
                     "Value in CDR is not a valid type");
         }
-    }
-
-    bool set_car(T)(T t) @property
-    {
-        car = t;
-        return has_car = true;
-    }
-
-    bool set_cdr(T)(T t) @property
-    {
-        cdr = t;
-        return has_cdr = true;
     }
 
     string toString()
@@ -79,6 +74,11 @@ struct Pair
 
         return repr ~ cdr_string ~ ")";
     }
+
+    //string toString()
+    //{
+    //    return "Pair: " ~ to!string(car) ~ " | " ~ to!stringcdr;
+    //}
 }
 
 alias NumberType = double;
@@ -99,8 +99,6 @@ alias ExpressionTypes = TypeTuple!(Number, Symbol, Pair, Sexpr);
 
 bool is_expression_type(T)(T t)
 {
-//    writeln("is_expression_type? ", t);
-
     if (staticIndexOf!(T, ExpressionTypes) >= 0)
     {
         return true;
@@ -125,8 +123,12 @@ bool is_expression_type(T)(T t)
 bool is_type_in_typetuple(T...)(TypeInfo info)
 {
     foreach(t; T)
+    {
         if (info == typeid(t))
+        {
             return true;
+        }
+    }
     return false;
 }
 
@@ -135,105 +137,48 @@ bool is_atomic_type(TypeInfo info)
     return is_type_in_typetuple!AtomicTypes(info);
 }
 
-enum SexprType
-{
-    Number,
-    Symbol,
-    Pair,
-}
+//struct SexprEnum
+//{
+//    auto TNumber = new Object();
+//    auto TSymbol = new Object();
+//    auto TPair = new Object();
 
-bool is_sexpr_value_kind(T)()
+
+//    const Number() @property { return TNumber; }
+//    const Symbol() @property { return TSymbol; }
+//    const Pair() @property { return TPair; }
+//}
+
+bool is_sexpr_value_kind(T)() @property
 {
     return (is(T == Pair) || is(T == Symbol) || is (T == Number));
 }
 
-struct SexprValue
-{
-    Algebraic!(Pair, Symbol, Number) value;
-    TypeInfo type;
-
-    void opAssign(T)(T t) if (is_sexpr_value_kind!T)
-    {
-        value = t;
-        type = typeid(T);
-    }
-
-    T to(T)() if (is_sexpr_value_kind!T)
-    {
-        if (type == typeid(T))
-        {
-            return value.peek!T;
-        }
-        return null;
-    }
-
-    alias value this;
-}
+alias SexprKind = Algebraic!(Number, Symbol, Pair);
 
 struct Sexpr
 {
-    SexprValue value;
+    SexprKind value;
     alias value this;
-    bool has_value = false;
 
     this(T)(T t) if (is_sexpr_value_kind!T)
     {
-        writeln("new Sexpr, of type: ", T.stringof);
-        has_value = true;
         value = t;
     }
 
-    void opAssign(T)(T t) if (is_sexpr_value_kind!T)
+    //bool has_value() @property
+    //{
+    //    return value.hasValue;
+    //}
+
+    void opCatAssign(T)(T t) if (is_sexpr_value_kind!T || is(T == Sexpr))
     {
-        if (has_value)
+        writeln("opCatAssign: ", t);
+
+        if (!value.hasValue)
         {
-            debug writeln("Sexpr.opAssign: comparing existing type ", type,
-                          " with ", typeid(T));
-            assert (typeid(T) == type);
+            value = t;
         }
-        value = t;
-    }
-
-    void opCatAssign(T)(T t)
-    {
-        writeln("Sexpr.opCatAssign ", T.stringof, ": ", t);
-
-        bool try_append(ref Pair p, T t)
-        {
-            writeln("try_append: ", t);
-
-            if (!p.has_car)
-            {
-                p.car = new Sexpr(t);
-                return true;
-            }
-            return false;
-        }
-
-        debug assert (has_value);
-        debug assert (value.type == typeid(Pair), format(
-                     "Cannot append %s to a non-Pair expression", T.stringof));
-
-        auto pair = *value.peek!Pair;
-        //while (!try_append(pair, t))
-        //{
-        //    if (pair.has_cdr)
-        //    {
-        //        if (is(pair.cdr.type == Pair))
-        //        {
-        //            pair = *pair.cdr.value.peek!Pair;
-        //        }
-        //        else
-        //        {
-        //            throw new TypeError(format(
-        //                            "Cannot append to improper list ", pair));
-        //        }
-        //    }
-        //    else
-        //    {
-        //        pair.cdr = new Sexpr(*new Pair);
-        //        pair = pair.cdr.peek!Pair;
-        //    }
-        //}
     }
 }
+

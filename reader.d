@@ -45,7 +45,7 @@ Sexpr read()
     write(">>> ");
     try
     {
-        sexpr = parse();
+        return parse();
     }
     catch (ReadError e)
     {
@@ -80,27 +80,25 @@ void scan_for_illegal_lexemes(in string s)
 
 Sexpr parse(string s=null)
 {
-    string accumulated_chars = "";
+    Sexpr sexpr;
     int paren_count = 0;
-
-    Sexpr*[] sexprs = [];
+    string accumulated_chars = "";
 
     void append_tok_if_chars()
     {
+        writeln("append_tok_if_chars: " ~ accumulated_chars);
         if (accumulated_chars.length == 0)
         {
             return;
-        }
-        else if (sexprs.length == 0)
-        {
-            sexprs ~= new Sexpr(*new Pair);
         }
 
         try
         {
             Number number = parse_number(accumulated_chars);
             writeln("parsed number ", number);
-            *sexprs[$-1] ~= number;
+
+            sexpr ~= number;
+
             accumulated_chars = "";
             return;
         } catch (ConvException ignored) {}
@@ -116,8 +114,8 @@ Sexpr parse(string s=null)
         }
         else
         {
-            //toks ~= make_token(accumulated_chars, *new Symbol(accumulated_chars));
-
+            writeln("  append new Symbol: " ~ accumulated_chars);
+            sexpr ~= *new Symbol(accumulated_chars);
         }
 
         accumulated_chars = "";
@@ -136,9 +134,9 @@ Sexpr parse(string s=null)
 
         foreach(i, ref c; s)
         {
-            writeln(i, ": ", c);
             string str_c = to!string(c);
 
+            //writeln("char ", i, ": '", c, "'");
             if (WHITESPACE.indexOf(c) >= 0)
             {
                 append_tok_if_chars();
@@ -151,20 +149,15 @@ Sexpr parse(string s=null)
             {
                 if (str_c == open_paren)
                 {
+                    writeln(" ( => append new Pair");
                     parens += 1;
-
-                    sexprs ~= new Sexpr(*new Pair);
-                    writeln("Here");
+                    sexpr ~= *new Pair;
                 }
                 else if (str_c == close_paren)
                 {
+                    writeln(" ) => close current object, join to previous");
                     parens -= 1;
                     append_tok_if_chars();
-
-                    if (parens == 0)
-                    {
-                        //toks.length += 1;
-                    }
                 }
                 else
                 {
@@ -184,14 +177,12 @@ Sexpr parse(string s=null)
         if (paren_count < 0)
         {
             throw new ReadError("Unexpected ')' character");
-        }
+         }
         while (paren_count != 0)
         {
             paren_count += do_parse();
         }
     }
 
-    assert (sexprs.length == 1,
-            format("Sexpr[] length is not 1, it is %s", sexprs.length));
-    return *sexprs[0];
+    return sexpr;
 }
