@@ -95,7 +95,6 @@ Sexpr parse(string s=null)
         try
         {
             Number number = parse_number(accumulated_chars);
-            writeln("parsed number ", number);
 
             sexpr ~= number;
 

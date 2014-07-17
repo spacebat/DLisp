@@ -36,28 +36,15 @@ struct Pair
         return cdr !is null;
     }
 
-    invariant()
-    {
-        if (car !is null)
-        {
-            assert (is_expression_type(car),
-                    "Value in CAR is not a valid type");
-        }
-
-        if (cdr !is null)
-        {
-            assert (is_expression_type(cdr),
-                    "Value in CDR is not a valid type");
-        }
-    }
-
     string toString()
     {
+        writeln("Pair.toString");
         string car_string, cdr_string;
 
         if (has_car && car.has_value)
         {
-            car_string = to!string(car);
+            writeln("...has_car && car.has_value");
+            car_string = car.toString();
 
             if (has_cdr && car.has_value)
             {
@@ -67,9 +54,9 @@ struct Pair
 
         string repr = "(" ~ car_string;
 
-        if (repr.length > 1)
+        if (cdr_string.length)
         {
-            repr.length += 1;
+            repr ~= " ";
         }
 
         return repr ~ cdr_string ~ ")";
@@ -77,7 +64,7 @@ struct Pair
 
     //string toString()
     //{
-    //    return "Pair: " ~ to!string(car) ~ " | " ~ to!stringcdr;
+    //    return "Pair: " ~ to!string(car) ~ " | " ~ to!string(cdr);
     //}
 }
 
@@ -99,25 +86,27 @@ alias ExpressionTypes = TypeTuple!(Number, Symbol, Pair, Sexpr);
 
 bool is_expression_type(T)(T t)
 {
-    if (staticIndexOf!(T, ExpressionTypes) >= 0)
-    {
-        return true;
-    }
+    writeln("is_expression_type: testing ", typeid(t));
+    return (is(T == Number) || is(T == Symbol) || is(T == Pair));
+    //if (staticIndexOf!(T, ExpressionTypes) >= 0)
+    //{
+    //    return true;
+    //}
 
-    auto var = cast(Variant)t.value;
+    //auto var = cast(Variant)t.value;
 
-    if (var != null)
-    {
-        foreach(E; ExpressionTypes)
-        {
-            if (var.type == typeid(E))
-            {
-                return true;
-            }
-        }
-    }
+    //if (var != null)
+    //{
+    //    foreach(E; ExpressionTypes)
+    //    {
+    //        if (var.type == typeid(E))
+    //        {
+    //            return true;
+    //        }
+    //    }
+    //}
 
-    return false;
+    //return false;
 }
 
 bool is_type_in_typetuple(T...)(TypeInfo info)
@@ -166,10 +155,27 @@ struct Sexpr
         value = t;
     }
 
-    //bool has_value() @property
-    //{
-    //    return value.hasValue;
-    //}
+    string toString()
+    {
+        return value.toString();
+    }
+
+    invariant()
+    {
+        if (value.hasValue)
+        {
+               assert (value.type == typeid(Pair) ||
+                       value.type == typeid(Symbol) ||
+                       value.type == typeid(Number),
+                            format("Sexpr has an illegal type: %s",
+                                    to!string(value.type)));
+        }
+    }
+
+    bool has_value() @property
+    {
+        return value.hasValue;
+    }
 
     void opCatAssign(T)(T t) if (is_sexpr_value_kind!T || is(T == Sexpr))
     {
@@ -177,7 +183,45 @@ struct Sexpr
 
         if (!value.hasValue)
         {
+            writeln("  -> assign this Sexpr to ", t);
             value = t;
+        }
+        else
+        {
+            if (value.type != typeid(Pair))
+            {
+                throw new TypeError("Cannot append a " ~ T.stringof ~ "to " ~
+                                    "a non-Pair S-Expression");
+            }
+            else
+            {
+                // Traverse the linked-Pairs until an empty CDR is found,
+                // else throw an exception
+                auto iter_p = value.peek!Pair;
+                auto seeking = true;
+
+                while (seeking)
+                {
+                    if (iter_p.has_cdr)
+                    {
+                        if (iter_p.cdr.type != typeid(Pair))
+                        {
+                            throw new
+                            TypeError("Cannot append a " ~ T.stringof ~ "to " ~
+                                "a non-Pair S-Expression");
+                        }
+                        else
+                        {
+                            iter_p = iter_p.cdr.peek!Pair;
+                        }
+                    }
+                    else
+                    {
+                        seeking = false;
+                        iter_p.car = new Sexpr(t);
+                    }
+                }
+            }
         }
     }
 }
