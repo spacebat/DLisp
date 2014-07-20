@@ -5,7 +5,7 @@ module Kernel.basetypes;
 import std.variant;
 import std.conv : to;
 import std.traits;
-import std.typecons;
+import std.typecons : Tuple;
 import std.stdio;
 import std.typetuple;
 
@@ -21,51 +21,92 @@ struct Symbol
     }
 }
 
-struct Pair
+struct Nothing {}
+
+struct Maybe(T)
 {
-    private Sexpr * car = null,
-                    cdr = null;
+    Variant value = Nothing;
+    private const bool _is_set;
 
-    bool has_car() @property
+    this(U)(U u) if (is(U == T))
     {
-        return car !is null;
+        assert (_is_set != true);
+        value = u;
+        _is_set = true;
     }
 
-    bool has_cdr() @property
+    alias value this;
+}
+
+struct EmptyList {}
+
+Pair cons(Sexpr *car, Sexpr* cdr)
+{
+    return * new Pair(car, cdr);
+}
+
+struct VList(T...)
+{
+    Variant[] values;
+
+    invariant()
     {
-        return cdr !is null;
+        foreach(v; values)
+            if (!is_valid_member_type(v))
+                throw new
+                    TypeError(format("Invalid type: %s. Must be one of %s",
+                                     v.type, T.stringof));
     }
 
-    string toString()
+    private const bool is_valid_member_type(in Variant v)
     {
-        writeln("Pair.toString");
-        string car_string, cdr_string;
+        assert (v.hasValue(), format("VList element %s is not initialised"));
 
-        if (has_car && car.has_value)
+        foreach(t; T)
         {
-            writeln("...has_car && car.has_value");
-            car_string = car.toString();
-
-            if (has_cdr && car.has_value)
+            // There must be a less crummy way than this...
+            if (v.peek!t != null)
             {
-                cdr_string = to!string(cdr);
+                return true;
             }
         }
-
-        string repr = "(" ~ car_string;
-
-        if (cdr_string.length)
-        {
-            repr ~= " ";
-        }
-
-        return repr ~ cdr_string ~ ")";
+        return false;
     }
 
-    //string toString()
-    //{
-    //    return "Pair: " ~ to!string(car) ~ " | " ~ to!string(cdr);
-    //}
+    void opCatAssign(U)(U u) if (staticIndexOf!(U, T) >= 0)
+    {
+        writeln(" [VList ~= ", U.stringof, ": ", u, "]");
+        values ~= *new Variant;
+        values[$-1] = u;
+    }
+
+    U opIndex(U)(uint i)
+    {
+        if (values.length > i)
+            return values[i];
+        else
+            throw new IndexError(format(
+                        "VList does not have a value at index %s; " ~
+                        "length is: %s", i, values.length));
+    }
+}
+
+struct Pair
+{
+    private Sexpr* car = null,
+                   cdr = null;
+
+    this(Sexpr* car, Sexpr* cdr)
+    {
+        this.car = car;
+        this.cdr = cdr;
+    }
+
+    invariant()
+    {
+        assert (car != null);
+        assert (cdr != null);
+    }
 }
 
 alias NumberType = double;
@@ -84,31 +125,6 @@ struct Number
 alias AtomicTypes = TypeTuple!(Number, Symbol);
 alias ExpressionTypes = TypeTuple!(Number, Symbol, Pair, Sexpr);
 
-bool is_expression_type(T)(T t)
-{
-    writeln("is_expression_type: testing ", typeid(t));
-    return (is(T == Number) || is(T == Symbol) || is(T == Pair));
-    //if (staticIndexOf!(T, ExpressionTypes) >= 0)
-    //{
-    //    return true;
-    //}
-
-    //auto var = cast(Variant)t.value;
-
-    //if (var != null)
-    //{
-    //    foreach(E; ExpressionTypes)
-    //    {
-    //        if (var.type == typeid(E))
-    //        {
-    //            return true;
-    //        }
-    //    }
-    //}
-
-    //return false;
-}
-
 bool is_type_in_typetuple(T...)(TypeInfo info)
 {
     foreach(t; T)
@@ -126,24 +142,12 @@ bool is_atomic_type(TypeInfo info)
     return is_type_in_typetuple!AtomicTypes(info);
 }
 
-//struct SexprEnum
-//{
-//    auto TNumber = new Object();
-//    auto TSymbol = new Object();
-//    auto TPair = new Object();
-
-
-//    const Number() @property { return TNumber; }
-//    const Symbol() @property { return TSymbol; }
-//    const Pair() @property { return TPair; }
-//}
-
 bool is_sexpr_value_kind(T)() @property
 {
     return (is(T == Pair) || is(T == Symbol) || is (T == Number));
 }
 
-alias SexprKind = Algebraic!(Number, Symbol, Pair);
+alias SexprKind = Algebraic!(Number, Symbol, Pair, EmptyList);
 
 struct Sexpr
 {
@@ -155,74 +159,35 @@ struct Sexpr
         value = t;
     }
 
+    invariant()
+    {
+        assert(value.hasValue());
+    }
+
     string toString()
     {
+        if (!value.hasValue)
+        {
+            return "<uninitialised Sexpr>";
+        }
         return value.toString();
     }
 
     invariant()
     {
         if (value.hasValue)
-        {
-               assert (value.type == typeid(Pair) ||
-                       value.type == typeid(Symbol) ||
-                       value.type == typeid(Number),
-                            format("Sexpr has an illegal type: %s",
-                                    to!string(value.type)));
-        }
+            assert (
+                   value.type == typeid(Pair) ||
+                   value.type == typeid(Symbol) ||
+                   value.type == typeid(Number) ||
+                   value.type == typeid(EmptyList),
+            format("Sexpr has an illegal type: %s",
+                   to!string(value.type)));
     }
 
     bool has_value() @property
     {
         return value.hasValue;
-    }
-
-    void opCatAssign(T)(T t) if (is_sexpr_value_kind!T || is(T == Sexpr))
-    {
-        writeln("opCatAssign: ", t);
-
-        if (!value.hasValue)
-        {
-            writeln("  -> assign this Sexpr to ", t);
-            value = t;
-        }
-        else
-        {
-            if (value.type != typeid(Pair))
-            {
-                throw new TypeError("Cannot append a " ~ T.stringof ~ "to " ~
-                                    "a non-Pair S-Expression");
-            }
-            else
-            {
-                // Traverse the linked-Pairs until an empty CDR is found,
-                // else throw an exception
-                auto iter_p = value.peek!Pair;
-                auto seeking = true;
-
-                while (seeking)
-                {
-                    if (iter_p.has_cdr)
-                    {
-                        if (iter_p.cdr.type != typeid(Pair))
-                        {
-                            throw new
-                            TypeError("Cannot append a " ~ T.stringof ~ "to " ~
-                                "a non-Pair S-Expression");
-                        }
-                        else
-                        {
-                            iter_p = iter_p.cdr.peek!Pair;
-                        }
-                    }
-                    else
-                    {
-                        seeking = false;
-                        iter_p.car = new Sexpr(t);
-                    }
-                }
-            }
-        }
     }
 }
 
