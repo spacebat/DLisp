@@ -5,11 +5,13 @@ module Kernel.basetypes;
 import std.variant;
 import std.conv : to;
 import std.traits;
-import std.typecons : Tuple;
+import std.typecons;
 import std.stdio;
+import std.string;
 import std.typetuple;
 
 import Kernel.exceptions;
+
 
 struct Symbol
 {
@@ -19,23 +21,6 @@ struct Symbol
     {
         return text;
     }
-}
-
-struct Nothing {}
-
-struct Maybe(T)
-{
-    Variant value = Nothing;
-    private const bool _is_set;
-
-    this(U)(U u) if (is(U == T))
-    {
-        assert (_is_set != true);
-        value = u;
-        _is_set = true;
-    }
-
-    alias value this;
 }
 
 struct EmptyList {}
@@ -52,15 +37,19 @@ struct VList(T...)
     invariant()
     {
         foreach(v; values)
+        {
             if (!is_valid_member_type(v))
-                throw new
-                    TypeError(format("Invalid type: %s. Must be one of %s",
-                                     v.type, T.stringof));
+            {
+                //throw new TypeError(format(
+                throwEx!TypeError(format(
+                   "Invalid type: %s. Must be one of %s", v.type, T.stringof));
+            }
+        }
     }
 
     private const bool is_valid_member_type(in Variant v)
     {
-        assert (v.hasValue(), format("VList element %s is not initialised"));
+        assert(v.hasValue(), format("VList element %s is not initialised"));
 
         foreach(t; T)
         {
@@ -70,12 +59,30 @@ struct VList(T...)
                 return true;
             }
         }
+
         return false;
+    }
+
+    string toString()
+    {
+        auto value_str = "";
+
+        foreach(v; values)
+        {
+            if (value_str.length)
+            {
+                value_str ~= " ";
+            }
+
+            value_str ~= format("%s", v);
+
+        }
+
+        return format("(%s)", value_str);
     }
 
     void opCatAssign(U)(U u) if (staticIndexOf!(U, T) >= 0)
     {
-        writeln(" [VList ~= ", U.stringof, ": ", u, "]");
         values ~= *new Variant;
         values[$-1] = u;
     }
@@ -83,11 +90,15 @@ struct VList(T...)
     U opIndex(U)(uint i)
     {
         if (values.length > i)
+        {
             return values[i];
+        }
         else
+        {
             throw new IndexError(format(
-                        "VList does not have a value at index %s; " ~
-                        "length is: %s", i, values.length));
+                            "VList does not have a value at index %s; " ~
+                            "length is: %s", i, values.length));
+        }
     }
 }
 
@@ -123,7 +134,7 @@ struct Number
 }
 
 alias AtomicTypes = TypeTuple!(Number, Symbol);
-alias ExpressionTypes = TypeTuple!(Number, Symbol, Pair, Sexpr);
+
 
 bool is_type_in_typetuple(T...)(TypeInfo info)
 {
@@ -176,13 +187,15 @@ struct Sexpr
     invariant()
     {
         if (value.hasValue)
+        {
             assert (
                    value.type == typeid(Pair) ||
                    value.type == typeid(Symbol) ||
                    value.type == typeid(Number) ||
                    value.type == typeid(EmptyList),
-            format("Sexpr has an illegal type: %s",
-                   to!string(value.type)));
+                format("Sexpr has an illegal type: %s",
+                       to!string(value.type)));
+        }
     }
 
     bool has_value() @property
@@ -191,3 +204,49 @@ struct Sexpr
     }
 }
 
+struct List(ElementTypes...)
+{
+    struct MetaList
+    {
+        List!(ElementTypes) *list = null;
+        alias list this;
+    }
+
+    alias ThisType = List!(ElementTypes);
+    alias AllElemTypes = Algebraic!(MetaList, ElementTypes);
+    alias Element = Algebraic!AllElemTypes;
+
+    Element[] elements;
+
+    alias elements this;
+
+    uint length() const @property
+    {
+        return elements.length;
+    }
+
+    void opCatAssign(T)(T t)
+    {
+        elements.length += 1;
+        Element e = new Element;
+        e = t;
+    }
+
+    string toString()
+    {
+        auto s = "(";
+
+        foreach(i, e; elements)
+        {
+            s ~= format("%s", e);
+            if (i < (elements.length - 1))
+            {
+                s ~= " ";
+            }
+        }
+        return s ~ ")";
+    }
+}
+
+alias ExpressionKinds = TypeTuple!(Number, Symbol, Pair, Sexpr, EmptyList);
+alias SexprList = List!ExpressionKinds;

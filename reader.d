@@ -4,13 +4,14 @@ module Kernel.reader;
 
 import std.stdio;
 import std.string;
-import std.variant : Variant;
+import std.variant : Variant, variantArray;
 import std.conv;
 import std.ascii : letters, digits;
 import std.typetuple : staticIndexOf;
 
 import Kernel.basetypes;
 import Kernel.exceptions;
+
 
 const string COMMENT = ";";
 const string WHITESPACE = " \t\n\r";
@@ -64,17 +65,18 @@ Number parse_number(in string s)
 void scan_for_illegal_lexemes(in string s)
 {
     foreach(n, ref ill; ILLEGAL_LEXEMES)
+    {
         if (indexOf(s, ill) >= 0)
-            throw new ReadError(format("Illegal lexeme at position %s of "
-                                       "input string: '%s'", n, ill));
+            throwEx!ReadError(format("Illegal lexeme at position %s of "
+                                     "input string: '%s'", n, ill));
+    }
 }
 
 Sexpr parse(string s=null)
 {
-    Sexpr sexpr;
     int paren_count = 0;
     string accumulated_chars = "";
-    VList!ExpressionTypes sexprs;
+    SexprList[] sexprs;
 
     void append_tok_if_chars()
     {
@@ -85,17 +87,16 @@ Sexpr parse(string s=null)
 
         try
         {
-            Number number = parse_number(accumulated_chars);
-            sexprs ~= number;
+            sexprs[$-1] ~= parse_number(accumulated_chars);
             accumulated_chars = "";
             return;
         } catch (ConvException ignored) {}
 
         if (digits.indexOf(accumulated_chars[0]) >= 0)
         {
-            throw new ReadError(format(
-                "Symbols must not begin with a digit: '%s'",
-                accumulated_chars));
+            throwEx!ReadError(format(
+                                  "Symbols must not begin with a digit: '%s'",
+                                   accumulated_chars));
         }
         else if (accumulated_chars == pair_infix)
         {
@@ -104,7 +105,7 @@ Sexpr parse(string s=null)
         else
         {
             writeln("  append new Symbol: " ~ accumulated_chars);
-            sexprs ~= *new Symbol(accumulated_chars);
+            sexprs[$-1] ~= *new Symbol(accumulated_chars);
         }
 
         accumulated_chars = "";
@@ -123,18 +124,17 @@ Sexpr parse(string s=null)
 
         foreach(i, ref c; s)
         {
-
             string str_c = to!string(c);
+            writeln(" ", i, ":= ", str_c);
 
-            //writeln("char ", i, ": '", c, "'");
             if (WHITESPACE.indexOf(c) >= 0)
             {
                 append_tok_if_chars();
+                writeln(" ~~> ", sexprs);
                 continue;
             }
             else
             {
-                writeln("@do_parse: char is: ", c);
                 if ((EXTENDED_ALPHABET ~ digits).indexOf(c) >= 0)
                 {
                     accumulated_chars ~= c;
@@ -143,21 +143,35 @@ Sexpr parse(string s=null)
                 {
                     if (str_c == open_paren)
                     {
-                        writeln(" ( => append new Pair");
                         parens += 1;
-                        sexprs ~= *new Pair;
+                        //sexprs.length += 1;
+                        sexprs ~= *new SexprList;
+
+                        //writeln(" new Object!");
+                        writeln(" ~~> ", sexprs);
                     }
                     else if (str_c == close_paren)
                     {
                         append_tok_if_chars();
-                        writeln(" ) => close current object, join to previous");
+
+                        if (sexprs.length > 1)
+                        {
+                            SexprList head = sexprs[$-1];
+                            sexprs.length -= 1;
+                            sexprs[$-1] ~= head;
+
+                            writeln(" close current object");
+                        }
+
                         parens -= 1;
+
+                        writeln(" ~~> ", sexprs);
                     }
                     else
                     {
-                        throw new ReadError(format(
-                                    "Illegal character at position %s of '%s'",
-                                    i, chop(s)));
+                        throwEx!ReadError(
+                            format("Illegal character at position %s of '%s'",
+                                   i, chop(s)));
                     }
                 }
             }
@@ -171,8 +185,9 @@ Sexpr parse(string s=null)
     {
         if (paren_count < 0)
         {
-            throw new ReadError("Unexpected ')' character");
-         }
+            throwEx!ReadError(format("Unexpected '%s' character",
+                                     close_paren));
+        }
         while (paren_count != 0)
         {
             paren_count += do_parse();
@@ -180,5 +195,5 @@ Sexpr parse(string s=null)
     }
 
     //return sexprs[0];
-    assert (0);
+    assert (0, "not implemented!");
 }
