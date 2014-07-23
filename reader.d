@@ -34,14 +34,14 @@ const string operative_prefix = "$";
 const string constant_prefix = "#";
 const string pair_infix = ".";
 
-Sexpr read()
+SexprList[] read()
 {
-    Sexpr sexpr;
+    SexprList[] sexprs;
     write(">>> ");
 
     try
     {
-        return parse();
+        sexprs = parse();
     }
     catch (ReadError e)
     {
@@ -49,7 +49,7 @@ Sexpr read()
         read();
     }
 
-    return sexpr;
+    return sexprs;
 }
 
 alias NumberType = typeof(Number.value);
@@ -72,7 +72,7 @@ void scan_for_illegal_lexemes(in string s)
     }
 }
 
-Sexpr parse(string s=null)
+SexprList[] parse(string s=null)
 {
     int paren_count = 0;
     string accumulated_chars = "";
@@ -165,7 +165,7 @@ Sexpr parse(string s=null)
 
                         parens -= 1;
 
-                        writeln(" ~~> ", sexprs);
+                        //writeln(" ~~> ", sexprs);
                     }
                     else
                     {
@@ -194,6 +194,5 @@ Sexpr parse(string s=null)
         }
     }
 
-    //return sexprs[0];
-    assert (0, "not implemented!");
+    return sexprs;
 }

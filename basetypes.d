@@ -135,7 +135,6 @@ struct Number
 
 alias AtomicTypes = TypeTuple!(Number, Symbol);
 
-
 bool is_type_in_typetuple(T...)(TypeInfo info)
 {
     foreach(t; T)
@@ -260,9 +259,7 @@ struct SexprList
 
     void opCatAssign(T)(T t)
     {
-        auto e = new Element(t);
-        assert (e);
-        elems ~= *e;
+        elems ~= *new Element(t);
     }
 
     string toString()

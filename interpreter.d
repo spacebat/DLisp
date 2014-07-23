@@ -15,8 +15,8 @@ int main()
 
     while(true)
     {
-        auto sexpr = read();
-        writeln("read: ", sexpr);
+        auto list = read();
+        writeln("read: ", list);
         //current_env = Environment.get_current_env();
 
         try
