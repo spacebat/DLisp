@@ -204,42 +204,74 @@ struct Sexpr
     }
 }
 
-struct List(ElementTypes...)
+string string_of_elements(ListElem)(ListElem elements)
 {
-    struct MetaList
+    auto s = "(";
+
+    if (elements.length)
     {
-        List!(ElementTypes) *list = null;
-        alias list this;
+        foreach(i, ref e; elements)
+        {
+            writeln("typeof e :: ", e.type);
+            s ~= format("%s", e);
+
+            if (i < (elements.length - 1))
+            {
+                s ~= " ";
+            }
+        }
+    }
+    return s ~ ")";
+}
+
+alias ExpressionKinds = TypeTuple!(Number, Symbol, Pair, Sexpr, EmptyList);
+
+
+struct SexprList
+{
+    struct Element
+    {
+        private Variant value;
+        alias value this;
+
+        this(T)(T t) if (is_valid_elem_type!T())
+        {
+            value = t;
+        }
+
+        static bool is_valid_elem_type(T)()
+        {
+            return(
+                 is(T == SexprList) ||
+                 is(T == Number) ||
+                 is(T == Symbol) ||
+                 is(T == Pair) ||
+                 is(T == Sexpr) ||
+                 is(T == EmptyList));
+        }
+
+        string toString()
+        {
+            return value.toString();
+        }
     }
 
-    alias ThisType = List!(ElementTypes);
-    alias AllElemTypes = Algebraic!(MetaList, ElementTypes);
-    alias Element = Algebraic!AllElemTypes;
-
-    Element[] elements;
-
-    alias elements this;
-
-    uint length() const @property
-    {
-        return elements.length;
-    }
+    Element[] elems;
 
     void opCatAssign(T)(T t)
     {
-        elements.length += 1;
-        Element e = new Element;
-        e = t;
+        auto e = new Element(t);
+        assert (e);
+        elems ~= *e;
     }
 
     string toString()
     {
         auto s = "(";
-
-        foreach(i, e; elements)
+        foreach(i, e; elems)
         {
-            s ~= format("%s", e);
-            if (i < (elements.length - 1))
+            s ~= e.toString();
+            if (i < (elems.length - 1))
             {
                 s ~= " ";
             }
@@ -247,6 +279,3 @@ struct List(ElementTypes...)
         return s ~ ")";
     }
 }
-
-alias ExpressionKinds = TypeTuple!(Number, Symbol, Pair, Sexpr, EmptyList);
-alias SexprList = List!ExpressionKinds;
