@@ -34,9 +34,9 @@ const string operative_prefix = "$";
 const string constant_prefix = "#";
 const string pair_infix = ".";
 
-SexprList[] read()
+List[] read()
 {
-    SexprList[] sexprs;
+    List[] sexprs;
     write(">>> ");
 
     try
@@ -58,7 +58,7 @@ Number parse_number(in string s)
 {
     auto num = to!NumberType(s);
     Number n;
-    n = *new Number(num);
+    n = new Number(num);
     return n;
 }
 
@@ -72,40 +72,38 @@ void scan_for_illegal_lexemes(in string s)
     }
 }
 
-SexprList[] parse(string s=null)
+List[] parse(string s=null)
 {
     int paren_count = 0;
     string accumulated_chars = "";
-    SexprList[] sexprs;
+    List[] lists;
 
     void append_tok_if_chars()
     {
         if (accumulated_chars.length == 0)
-        {
             return;
-        }
 
         try
         {
-            sexprs[$-1] ~= parse_number(accumulated_chars);
+            lists[$-1] ~= parse_number(accumulated_chars);
             accumulated_chars = "";
             return;
-        } catch (ConvException ignored) {}
+        }
+        catch (ConvException ignored) {}
 
         if (digits.indexOf(accumulated_chars[0]) >= 0)
         {
-            throwEx!ReadError(format(
-                                  "Symbols must not begin with a digit: '%s'",
-                                   accumulated_chars));
+            throwEx!ReadError(format("Symbols must not begin with a digit: " ~
+                                     "'%s'", accumulated_chars));
         }
         else if (accumulated_chars == pair_infix)
         {
-            writeln("TODO: handle Pair infix operator!");
+            writeln("handle Pair infix operator!");
+            lists[$-1].end.set_dotted();
         }
         else
         {
-            writeln("  append new Symbol: " ~ accumulated_chars);
-            sexprs[$-1] ~= *new Symbol(accumulated_chars);
+            lists[$-1] ~= new Symbol(accumulated_chars);
         }
 
         accumulated_chars = "";
@@ -125,12 +123,10 @@ SexprList[] parse(string s=null)
         foreach(i, ref c; s)
         {
             string str_c = to!string(c);
-            writeln(" ", i, ":= ", str_c);
 
             if (WHITESPACE.indexOf(c) >= 0)
             {
                 append_tok_if_chars();
-                writeln(" ~~> ", sexprs);
                 continue;
             }
             else
@@ -144,34 +140,26 @@ SexprList[] parse(string s=null)
                     if (str_c == open_paren)
                     {
                         parens += 1;
-                        //sexprs.length += 1;
-                        sexprs ~= *new SexprList;
-
-                        //writeln(" new Object!");
-                        writeln(" ~~> ", sexprs);
+                        lists[$-1] ~= new Pair;
                     }
                     else if (str_c == close_paren)
                     {
                         append_tok_if_chars();
 
-                        if (sexprs.length > 1)
+                        if (lists.length > 1)
                         {
-                            SexprList head = sexprs[$-1];
-                            sexprs.length -= 1;
-                            sexprs[$-1] ~= head;
-
-                            writeln(" close current object");
+                            auto head = lists[$-1];
+                            lists.length -= 1;
+                            lists[$-1] ~= head;
                         }
 
                         parens -= 1;
-
-                        //writeln(" ~~> ", sexprs);
                     }
                     else
                     {
-                        throwEx!ReadError(
-                            format("Illegal character at position %s of '%s'",
-                                   i, chop(s)));
+                        throwEx!ReadError(format(
+                                    "Illegal character at position %s of '%s'",
+                                    i, chop(s)));
                     }
                 }
             }
@@ -194,5 +182,5 @@ SexprList[] parse(string s=null)
         }
     }
 
-    return sexprs;
+    return lists;
 }

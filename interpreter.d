@@ -2,6 +2,7 @@ module Lisp.interpreter;
 
 import std.stdio : writeln;
 import std.conv : to;
+import std.string : join;
 
 import Kernel.basetypes;
 import Kernel.reader;
@@ -10,14 +11,16 @@ alias print = writeln;
 
 int main()
 {
-    //Environment current_env = new GroundEnv();
     string output;
 
     while(true)
     {
-        auto list = read();
-        writeln("read: ", list);
-        //current_env = Environment.get_current_env();
+        List[] lists = read();
+
+        foreach (i, list; lists)
+        {
+            writeln(list, "\n");
+        }
 
         try
         {
