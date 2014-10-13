@@ -12,7 +12,6 @@ import std.typetuple : staticIndexOf;
 import Kernel.basetypes;
 import Kernel.exceptions;
 
-
 const string COMMENT = ";";
 const string WHITESPACE = " \t\n\r";
 const string EXTENDED_ALPHABET = "!$%&*+-./:<=>?@^_~#" ~ letters;
@@ -47,8 +46,6 @@ PList[] read()
 
     return sexprs;
 }
-
-
 
 Number parse_number(in string s)
 {
