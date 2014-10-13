@@ -28,15 +28,11 @@ const string[] ILLEGAL_LEXEMES = [
     "{",
     "}",
 ];
-const string open_paren = "(";
-const string close_paren = ")";
-const string operative_prefix = "$";
-const string constant_prefix = "#";
-const string pair_infix = ".";
 
-List[] read()
+
+PList[] read()
 {
-    List[] sexprs;
+    PList[] sexprs;
     write(">>> ");
 
     try
@@ -72,16 +68,18 @@ void scan_for_illegal_lexemes(in string s)
     }
 }
 
-List[] parse(string s=null)
+PList[] parse(string s=null)
 {
     int paren_count = 0;
     string accumulated_chars = "";
-    List[] lists;
+    PList[] lists;
 
     void append_tok_if_chars()
     {
         if (accumulated_chars.length == 0)
+        {
             return;
+        }
 
         try
         {
@@ -93,16 +91,16 @@ List[] parse(string s=null)
 
         if (digits.indexOf(accumulated_chars[0]) >= 0)
         {
-            throwEx!ReadError(format("Symbols must not begin with a digit: " ~
+            throwEx!ReadError(format("Symbols cannot start with a digit: " ~
                                      "'%s'", accumulated_chars));
-        }
-        else if (accumulated_chars == pair_infix)
-        {
-            writeln("handle Pair infix operator!");
-            lists[$-1].end.set_dotted();
         }
         else
         {
+            if (lists.length == 0)
+            {
+                lists ~= new PList;
+            }
+
             lists[$-1] ~= new Symbol(accumulated_chars);
         }
 
@@ -137,18 +135,18 @@ List[] parse(string s=null)
                 }
                 else
                 {
-                    if (str_c == open_paren)
+                    if (str_c == ReadTable.open_paren)
                     {
                         parens += 1;
-                        lists[$-1] ~= new Pair;
+                        lists ~= new PList;
                     }
-                    else if (str_c == close_paren)
+                    else if (str_c == ReadTable.close_paren)
                     {
                         append_tok_if_chars();
 
                         if (lists.length > 1)
                         {
-                            auto head = lists[$-1];
+                            PList head = lists[$-1];
                             lists.length -= 1;
                             lists[$-1] ~= head;
                         }
@@ -164,6 +162,7 @@ List[] parse(string s=null)
                 }
             }
         }
+
         return parens;
     }
 
@@ -174,7 +173,7 @@ List[] parse(string s=null)
         if (paren_count < 0)
         {
             throwEx!ReadError(format("Unexpected '%s' character",
-                                     close_paren));
+                                     ReadTable.close_paren));
         }
         while (paren_count != 0)
         {
@@ -182,5 +181,14 @@ List[] parse(string s=null)
         }
     }
 
+    if (lists.length > 0)
+    {
+        foreach(list; lists)
+        {
+            writeln(list);
+        }
+    }
+
     return lists;
 }
+

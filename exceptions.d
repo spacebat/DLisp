@@ -29,7 +29,7 @@ mixin(generate_exception_mixin("UnknownSymbolError"));
 mixin(generate_exception_mixin("IllegalMutationException"));
 mixin(generate_exception_mixin("IllegalAssignmentType"));
 mixin(generate_exception_mixin("IndexError"));
-
+mixin(generate_exception_mixin("ProgrammerFail"));
 void throwEx(E)(string ms) if (cast(Exception)E !is null)
 {
     throw new E(ms);

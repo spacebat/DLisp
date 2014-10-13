@@ -15,12 +15,7 @@ int main()
 
     while(true)
     {
-        List[] lists = read();
-
-        foreach (i, list; lists)
-        {
-            writeln(list, "\n");
-        }
+        PList[] lists = read();
 
         try
         {

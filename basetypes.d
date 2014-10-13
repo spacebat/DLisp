@@ -12,10 +12,17 @@ import std.typetuple;
 
 import Kernel.exceptions;
 
+class ReadTable
+{
+    static string open_paren = "(";
+    static string close_paren = ")";
+    static string operative_prefix = "$";
+    static string constant_prefix = "#";
+    static string pair_infix = ".";
+}
 
 abstract class Sexpr
 {
-
 }
 
 class Symbol : Sexpr
@@ -31,7 +38,6 @@ class Symbol : Sexpr
     {
         return text;
     }
-
 }
 
 class Pair : Sexpr
@@ -61,6 +67,23 @@ class Pair : Sexpr
     {
         _dotted = true;
     }
+
+    override string toString()
+    {
+        string s;
+
+        if (car)
+        {
+            s ~= car.toString();
+            if (cdr)
+            {
+                s = " . " ~ cdr.toString();
+            }
+        }
+
+
+        return format("(%s)", s);
+    }
 }
 
 Pair cons(Sexpr car, Sexpr cdr)
@@ -68,41 +91,9 @@ Pair cons(Sexpr car, Sexpr cdr)
     return new Pair(car, cdr);
 }
 
-
-
-class List
+bool is_atomic_type(T)()
 {
-    Pair head = null, end = null;
-
-    private static bool is_valid_elem_type(T)()
-    {
-        static if (is(T == Sexpr))
-        {
-            return true;
-        }
-        else static if (is(T == List))
-        {
-            return true;
-        }
-        else
-        {
-            alias types = BaseTypeTuple!T;
-            foreach(t; types)
-            {
-                if (is(t == Sexpr))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    void opCatAssign(T)(T t) if (is_valid_elem_type!T())
-    {
-
-    }
+    return (is(T == Symbol) || is(T == Number));
 }
 
 alias NumberType = double;
@@ -114,11 +105,88 @@ class Number : Sexpr
 
     this (NumberType value)
     {
-        this,value = value;
+        this.value = value;
     }
 
     override string toString()
     {
         return to!string(value);
+    }
+}
+
+
+class PList : Sexpr
+{
+    /*
+     * A list made up of joined Pairs, aka, a singly-linked list.
+     */
+    Pair head = null,
+         end = null;
+
+    uint length = 0;
+
+    override string toString()
+    {
+        debug writeln("...in PList.toString");
+        string s;
+
+        if (head !is null && head.car !is null)
+        {
+            Pair p = head;
+            auto x = 0;
+
+            while (p.car !is null)
+            {
+                s ~= p.car.toString();
+
+                if (p.cdr !is null)
+                {
+                    s ~= " ";
+                    p = cast(Pair)p.cdr;
+                }
+                else
+                {
+                    break;
+                }
+            }
+        }
+
+        return format("(%s)", s);
+    }
+
+    private void _extend(T)(T t)
+    {
+        // Should not be called
+        end.car = t;
+        end.cdr = new Pair;
+        length += 1;
+        end = to!Pair(end.cdr);
+    }
+
+    void opCatAssign(T)(T t)
+    out
+    {
+        assert(head !is null);
+        assert(end !is null);
+        assert(end != head);
+        assert(end.car is null);
+    }
+    body
+    {
+        writefln("PList.opCatAssign(%s : %s) ", t, T.stringof);
+
+        if (head is null)
+        {
+            debug assert(end is null);
+            head = new Pair;
+            end = head;
+            _extend(t);
+            writeln(" -> Appended to HEAD");
+        }
+        else if (end.car is null)
+        {
+            _extend(t);
+            writefln(" -> Append to END (%s)", length);
+        }
     }
 }
