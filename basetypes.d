@@ -44,8 +44,6 @@ class Pair : Sexpr
 {
     Sexpr car, cdr;
 
-    bool _dotted = false;
-
     this ()
     {
         car = null;
@@ -58,14 +56,9 @@ class Pair : Sexpr
         this.cdr = cdr;
     }
 
-    bool dotted() @property
+    private bool _cdr_is_pair()
     {
-        return _dotted;
-    }
-
-    void set_dotted()
-    {
-        _dotted = true;
+        return (to!Pair(cdr) !is null);
     }
 
     override string toString()
@@ -75,12 +68,19 @@ class Pair : Sexpr
         if (car)
         {
             s ~= car.toString();
-            if (cdr)
+
+            if (cdr !is null)
             {
-                s = " . " ~ cdr.toString();
+                s ~= " ";
+
+                if (!_cdr_is_pair())
+                {
+                    s ~= ". ";
+                }
+
+                s ~= cdr.toString();
             }
         }
-
 
         return format("(%s)", s);
     }
@@ -181,12 +181,12 @@ class PList : Sexpr
             head = new Pair;
             end = head;
             _extend(t);
-            writeln(" -> Appended to HEAD");
+            //~ writeln(" -> Appended to HEAD");
         }
         else if (end.car is null)
         {
             _extend(t);
-            writefln(" -> Append to END (%s)", length);
+            //~ writefln(" -> Append to END (%s)", length);
         }
     }
 }
