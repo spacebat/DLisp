@@ -48,7 +48,7 @@ PList[] read()
     return sexprs;
 }
 
-alias NumberType = typeof(Number.value);
+
 
 Number parse_number(in string s)
 {
